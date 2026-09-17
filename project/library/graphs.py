@@ -32,6 +32,6 @@ def labeled_two_cycle_graph_to_dot(
 
     if filename is not None:
         graph_dot = nx_pydot.to_pydot(graph)
-        graph_dot.write(filename, format="raw")
+        graph_dot.write(filename)
 
     return graph
