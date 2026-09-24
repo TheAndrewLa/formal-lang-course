@@ -43,8 +43,8 @@ def graph_to_nfa(
 
     for u, v, label in graph.edges(data="label"):
         symbol = Symbol(str(label))
-        i = State(int(u))
-        j = State(int(v))
+        i = State(u)
+        j = State(v)
         nfa.add_transition(i, symbol, j)
 
     for s in start:
