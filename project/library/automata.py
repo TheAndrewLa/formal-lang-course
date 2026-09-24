@@ -22,8 +22,7 @@ def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
         raise ValueError("Failed to convert regex to epsilon NFA!")
     else:
         dfa = nfa.to_deterministic()
-        dfa.minimize()
-        return dfa
+        return dfa.minimize()
 
 
 def graph_to_nfa(
