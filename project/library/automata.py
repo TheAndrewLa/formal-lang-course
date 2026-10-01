@@ -15,6 +15,7 @@ from pyformlang.regular_expression import Regex
 
 # helper methods, will be removed, after PR#2 merged
 
+
 def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
     nfa = Regex(regex).to_epsilon_nfa()
     if nfa is None:
@@ -84,7 +85,9 @@ class AdjacencyMatrixFA:
                     case _:
                         for n in set(next):
                             next_index = state_to_index[n]
-                            self.transitions[str(symbol.value)][index, next_index] = True
+                            self.transitions[str(symbol.value)][index, next_index] = (
+                                True
+                            )
 
         for s in self.transitions:
             self.transitions[s] = self.transitions[s].tocsr()
