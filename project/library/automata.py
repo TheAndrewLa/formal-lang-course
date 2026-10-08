@@ -47,10 +47,10 @@ def graph_to_nfa(
         nfa.add_transition(i, symbol, j)
 
     for s in start:
-        nfa.start_states.add(State(s))
+        nfa.add_start_state(State(s))
 
     for f in final:
-        nfa.final_states.add(State(f))
+        nfa.add_final_state(State(f))
 
     return nfa
 
@@ -107,7 +107,8 @@ class AdjacencyMatrixFA:
             if symbol not in self.transitions:
                 return False
             vec = vec @ self.transitions[symbol]
-            vec.eliminate_zeros()
+
+        vec.eliminate_zeros()
 
         return bool(self.final_indices.intersection(vec.indices))
 
@@ -192,19 +193,12 @@ def tensor_based_rpq(
     automaton = intersect_automata(dfa, nfa)
     closure = automaton.transitive_closure()
 
-    result = set()
+    nfa_states = list(nfa.states)
+    nfa_len = nfa.len
 
-    state_to_index = {state: i for i, state in enumerate(nfa.states)}
-
-    dfa_start = list(dfa.start_indices)[0]
-
-    for i in start_nodes:
-        src = dfa_start * nfa.len + state_to_index[i]
-        for j in final_nodes:
-            for k in dfa.final_indices:
-                dst = k * nfa.len + state_to_index[j]
-                if closure[src, dst]:
-                    result.add((i, j))
-                    break
-
-    return result
+    return {
+        (nfa_states[start % nfa_len], nfa_states[final % nfa_len])
+        for start in automaton.start_indices
+        for final in automaton.final_indices
+        if closure[start, final]
+    }
