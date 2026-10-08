@@ -1,4 +1,3 @@
-from enum import auto
 from typing import Iterable
 
 import scipy.sparse as sparse
