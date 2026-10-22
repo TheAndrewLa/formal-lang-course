@@ -1,9 +1,12 @@
 from typing import Iterable
 
+import cfpq_data
 import pytest
+
 from networkx import MultiDiGraph
 
 from project.library.automata import tensor_based_rpq
+from project.library.automata import graph_to_nfa, regex_to_dfa
 
 
 RPQ_IMPLEMENTATIONS = [tensor_based_rpq]
@@ -64,11 +67,6 @@ def test_empty_start(rpq):
 def test_empty_final(rpq):
     g = make_graph([(0, 1, "a")])
     assert not rpq("a", g, {0}, {})
-import cfpq_data
-import pytest  # noqa: F401
-from project.library import (
-    automata,
-)  # on import will print something from __init__ file # noqa: F401
 
 
 def setup_module():
@@ -85,13 +83,13 @@ def roundtrip(regex: str):
     # Checking that DFA built by `regex_to_dfa` is equivalent to NFA built by `graph_to_nfa`
     # Assuming that `dfa.to_networkx()` works correctly
 
-    dfa = automata.regex_to_dfa(regex)
+    dfa = regex_to_dfa(regex)
     assert dfa is not None
 
     graph = dfa.to_networkx()
     assert graph is not None
 
-    nfa = automata.graph_to_nfa(graph, dfa.start_states, dfa.final_states)
+    nfa = graph_to_nfa(graph, dfa.start_states, dfa.final_states)
     assert nfa is not None
     assert dfa.is_equivalent_to(nfa)
 
@@ -118,7 +116,7 @@ def test_graph_to_nfa_pr():
     path = cfpq_data.download("pr")
     graph = cfpq_data.graph_from_csv(path)
 
-    nfa = automata.graph_to_nfa(graph, {0}, {1})
+    nfa = graph_to_nfa(graph, {0}, {1})
 
     assert len(nfa.states) == 815
 
@@ -135,7 +133,7 @@ def test_graph_to_nfa_gzip():
     path = cfpq_data.download("gzip")
     graph = cfpq_data.graph_from_csv(path)
 
-    nfa = automata.graph_to_nfa(graph, {0, 1, 2}, {453, 12, 988})
+    nfa = graph_to_nfa(graph, {0, 1, 2}, {453, 12, 988})
 
     assert len(nfa.states) == 2687
 
