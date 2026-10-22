@@ -1,4 +1,4 @@
-from typing import Set
+from typing import Set, Iterable
 from networkx import MultiDiGraph
 from pyformlang.regular_expression import Regex
 from pyformlang.finite_automaton import (
@@ -7,6 +7,7 @@ from pyformlang.finite_automaton import (
     State,
     Symbol,
 )
+from scipy import sparse
 
 
 def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
@@ -26,7 +27,7 @@ def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
 
 
 def graph_to_nfa(
-    graph: MultiDiGraph, startStates: Set[int], finalStates: Set[int]
+    graph: MultiDiGraph, startStates: Set[int] | None, finalStates: Set[int] | None
 ) -> NondeterministicFiniteAutomaton:
     """
     Converts a graph to a nondeterministic finite automaton (NFA).
@@ -38,8 +39,15 @@ def graph_to_nfa(
     """
     nfa = NondeterministicFiniteAutomaton()
 
-    start = startStates if startStates else set(map(int, graph.nodes()))
-    final = finalStates if finalStates else set(map(int, graph.nodes()))
+    if startStates is None:
+        start = set(map(int, graph.nodes()))
+    else:
+        start = startStates
+
+    if finalStates is None:
+        final = set(map(int, graph.nodes()))
+    else:
+        final = finalStates
 
     for u, v, label in graph.edges(data="label"):
         symbol = Symbol(str(label))
