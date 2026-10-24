@@ -206,20 +206,25 @@ def tensor_based_rpq(
 def ms_bfs_based_rpq(
     regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int]
 ) -> set[tuple[int, int]]:
-    dfa = AdjacencyMatrixFA(regex_to_dfa(regex))
+    if not start_nodes or not final_nodes:
+        return set()
 
+    dfa = AdjacencyMatrixFA(regex_to_dfa(regex))
     nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
+
     nfa_len = nfa.len
 
-    automaton = intersect_automata(dfa, nfa)
-    automaton_len = automaton.len
+    product_len = nfa_len * dfa.len
+    product = sparse.csr_matrix((product_len, product_len), dtype=bool)
 
-    all_transitions = sparse.csr_matrix((automaton_len, automaton_len), dtype=bool)
+    transition_keys = set(dfa.transitions.keys()).intersection(nfa.transitions.keys())
 
-    for t in automaton.transitions.values():
-        all_transitions = all_transitions + t
+    for s in transition_keys:
+        product = product + sparse.kron(
+            dfa.transitions[s], nfa.transitions[s], format="csr"
+        )
 
-    all_transitions = all_transitions.astype(bool).tocsr()
+    product = product.astype(bool).tocsr()
 
     node_to_index = {node: i for i, node in enumerate(nfa.states)}
     start = [s for s in start_nodes]
@@ -235,14 +240,14 @@ def ms_bfs_based_rpq(
 
     frontier = sparse.csr_matrix(
         ([True] * len(rows), (rows, cols)),
-        shape=(start_len, automaton_len),
+        shape=(start_len, product_len),
         dtype=bool,
     )
 
     visited = frontier.copy()
 
     while frontier.nnz > 0:
-        new_frontier = (frontier @ all_transitions).astype(bool).tocsr()
+        new_frontier = (frontier @ product).astype(bool).tocsr()
         frontier = new_frontier - new_frontier.multiply(visited)
         frontier.eliminate_zeros()
         visited = (visited + frontier).astype(bool).tocsr()
