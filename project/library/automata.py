@@ -27,7 +27,7 @@ def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
 
 
 def graph_to_nfa(
-    graph: MultiDiGraph, startStates: Set[int] | None, finalStates: Set[int] | None
+    graph: MultiDiGraph, startStates: Set[int], finalStates: Set[int]
 ) -> NondeterministicFiniteAutomaton:
     """
     Converts a graph to a nondeterministic finite automaton (NFA).
@@ -39,15 +39,8 @@ def graph_to_nfa(
     """
     nfa = NondeterministicFiniteAutomaton()
 
-    if startStates is None:
-        start = set(map(int, graph.nodes()))
-    else:
-        start = startStates
-
-    if finalStates is None:
-        final = set(map(int, graph.nodes()))
-    else:
-        final = finalStates
+    start = startStates if startStates else set(map(int, graph.nodes()))
+    final = finalStates if finalStates else set(map(int, graph.nodes()))
 
     for u, v, label in graph.edges(data="label"):
         symbol = Symbol(str(label))
@@ -196,6 +189,9 @@ def intersect_automata(
 def tensor_based_rpq(
     regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int]
 ) -> set[tuple[int, int]]:
+    if not start_nodes or not final_nodes:
+        return set()
+
     dfa = AdjacencyMatrixFA(regex_to_dfa(regex))
     nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
 
