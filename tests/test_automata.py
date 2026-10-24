@@ -12,6 +12,14 @@ from project.library.automata import graph_to_nfa, regex_to_dfa
 RPQ_IMPLEMENTATIONS = [tensor_based_rpq]
 
 
+def setup_module():
+    pass
+
+
+def teardown_module():
+    pass
+
+
 def make_graph(edges: Iterable[tuple[int, int, str]]):
     g = MultiDiGraph()
     for u, v, label in edges:
@@ -54,27 +62,19 @@ def test_star_2(rpq):
 @pytest.mark.parametrize("rpq", RPQ_IMPLEMENTATIONS)
 def test_empty_graph(rpq):
     g = make_graph([])
-    assert not rpq("a", g, {}, {})
+    assert not rpq("a", g, set(), set())
 
 
 @pytest.mark.parametrize("rpq", RPQ_IMPLEMENTATIONS)
 def test_empty_start(rpq):
     g = make_graph([(0, 1, "a")])
-    assert not rpq("a", g, {}, {1})
+    assert not rpq("a", g, set(), set([1]))
 
 
 @pytest.mark.parametrize("rpq", RPQ_IMPLEMENTATIONS)
 def test_empty_final(rpq):
     g = make_graph([(0, 1, "a")])
-    assert not rpq("a", g, {0}, {})
-
-
-def setup_module():
-    pass
-
-
-def teardown_module():
-    pass
+    assert not rpq("a", g, set([0]), set())
 
 
 def roundtrip(regex: str):
