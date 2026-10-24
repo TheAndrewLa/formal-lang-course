@@ -219,18 +219,7 @@ def ms_bfs_based_rpq(
     nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
 
     nfa_len = nfa.len
-
-    product_len = nfa_len * dfa.len
-    product = sparse.csr_matrix((product_len, product_len), dtype=bool)
-
-    transition_keys = set(dfa.transitions.keys()).intersection(nfa.transitions.keys())
-
-    for s in transition_keys:
-        product = product + sparse.kron(
-            dfa.transitions[s], nfa.transitions[s], format="csr"
-        )
-
-    product = product.astype(bool).tocsr()
+    dfa_len = dfa.len
 
     node_to_index = {node: i for i, node in enumerate(nfa.states)}
     start = [s for s in start_nodes]
@@ -246,14 +235,21 @@ def ms_bfs_based_rpq(
 
     frontier = sparse.csr_matrix(
         ([True] * len(rows), (rows, cols)),
-        shape=(start_len, product_len),
+        shape=(start_len, nfa_len * dfa_len),
         dtype=bool,
     )
 
     visited = frontier.copy()
 
+    common_symbols = dfa.transitions.keys() & nfa.transitions.keys()
+
     while frontier.nnz > 0:
-        new_frontier = (frontier @ product).astype(bool).tocsr()
+        new_frontier = sparse.csr_matrix((start_len, nfa_len * dfa_len), dtype=bool)
+
+        for s in common_symbols:
+            product = sparse.kron(dfa.transitions[s], nfa.transitions[s], format="csr")
+            new_frontier = new_frontier + (frontier @ product).astype(bool)
+
         frontier = new_frontier - new_frontier.multiply(visited)
         frontier.eliminate_zeros()
         visited = (visited + frontier).astype(bool).tocsr()
