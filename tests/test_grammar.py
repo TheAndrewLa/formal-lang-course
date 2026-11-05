@@ -2,10 +2,12 @@ from pyformlang.cfg import CFG, Variable
 import pytest
 from networkx import DiGraph, MultiDiGraph
 
-from project.library.grammar import hellings_based_cfpq, matrix_based_cfpq
-
-
-CFPQ_IMPLEMENTATIONS = [hellings_based_cfpq, matrix_based_cfpq]
+from project.library.grammar import (
+    cfg_to_rsm,
+    hellings_based_cfpq,
+    matrix_based_cfpq,
+    tensor_based_cfpq,
+)
 
 
 def setup_module():
@@ -14,6 +16,20 @@ def setup_module():
 
 def teardown_module():
     pass
+
+
+def wrap_tensor_based_cfpq(
+    cfg: CFG, graph: MultiDiGraph, starts: set[int], finals: set[int]
+):
+    rsm = cfg_to_rsm(cfg)
+    return tensor_based_cfpq(rsm, graph, starts, finals)
+
+
+CFPQ_IMPLEMENTATIONS = [
+    hellings_based_cfpq,
+    matrix_based_cfpq,
+    wrap_tensor_based_cfpq,
+]
 
 
 @pytest.mark.parametrize("cfpq", CFPQ_IMPLEMENTATIONS)
@@ -64,13 +80,13 @@ def test_ab(cfpq):
 
 @pytest.mark.parametrize("cfpq", CFPQ_IMPLEMENTATIONS)
 def test_parentheses(cfpq):
-    cfg = CFG.from_text("S -> S S | ( S ) | $", start_symbol=Variable("S"))
+    cfg = CFG.from_text("S -> S S | a S b | $", start_symbol=Variable("S"))
 
     graph = DiGraph()
-    graph.add_edge(1, 2, label="(")
-    graph.add_edge(2, 3, label=")")
-    graph.add_edge(3, 4, label="(")
-    graph.add_edge(4, 5, label=")")
+    graph.add_edge(1, 2, label="a")
+    graph.add_edge(2, 3, label="b")
+    graph.add_edge(3, 4, label="a")
+    graph.add_edge(4, 5, label="b")
 
     res = cfpq(cfg, graph, {1, 3, 4}, {3, 4, 5})
 
