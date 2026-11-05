@@ -44,6 +44,10 @@ def hellings_based_cfpq(
                 prod_terminal.append((s, t))
             case [Variable() as a, Variable() as b]:
                 prod_binary.append((s, a, b))
+            case _:
+                raise ValueError(
+                    f"Invalid production in weak normal form grammar: {production}"
+                )
 
     result: set[tuple[Variable, int, int]] = set()
 
