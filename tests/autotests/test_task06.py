@@ -9,7 +9,7 @@ from cfpq_concrete_cases import CaseCFPQ, CASES_CFPQ
 
 # Fix import statements in try block to run tests
 try:
-    from project.task6 import hellings_based_cfpq
+    from project.library.grammar import hellings_based_cfpq
 except ImportError:
     pytestmark = pytest.mark.skip("Task 6 is not ready to test!")
 
@@ -30,8 +30,8 @@ class TestHellingBasedCFPQ:
 
 def test_cfg_to_weak_normal_form_exists():
     try:
-        import project.task6
+        import project.library.grammar
 
-        assert "cfg_to_weak_normal_form" in dir(project.task6)
+        assert "cfg_to_weak_normal_form" in dir(project.library.grammar)
     except NameError:
         assert False
