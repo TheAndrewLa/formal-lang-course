@@ -167,7 +167,7 @@ def matrix_based_cfpq(
                 continue
 
             product = (matrices[left] @ matrices[right]).astype(bool)
-            new_matrix = matrices[head] + product
+            new_matrix = (matrices[head] + product).astype(bool).tocsr()
             new_matrix.eliminate_zeros()
 
             if new_matrix.nnz != matrices[head].nnz:
