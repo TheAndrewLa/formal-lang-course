@@ -1,7 +1,11 @@
 import numpy as np
 import pyformlang.cfg as cfg
 from networkx import MultiDiGraph
+from pyformlang.finite_automaton import State
 from pyformlang.cfg import CFG, Epsilon, Production, Terminal, Variable
+from pyformlang.rsa import RecursiveAutomaton
+from pyformlang.rsa.recursive_automaton import Symbol
+from project.library.automata import AdjacencyMatrixFA, graph_to_nfa
 from scipy import sparse
 
 
@@ -15,6 +19,15 @@ def cfg_to_weak_normal_form(cfg: CFG) -> CFG:
         grammar = CFG(grammar.variables, grammar.terminals, start, productions)
 
     return grammar
+
+
+def cfg_to_rsm(cfg: CFG) -> RecursiveAutomaton:
+    start = Symbol(cfg.start_symbol.to_text())
+    return RecursiveAutomaton.from_text(cfg.to_text(), start_symbol=start)
+
+
+def ebnf_to_rsm(ebnf: str) -> RecursiveAutomaton:
+    return RecursiveAutomaton.from_text(ebnf)
 
 
 def hellings_based_cfpq(
@@ -182,3 +195,128 @@ def matrix_based_cfpq(
         for u, v in zip(rows, cols)
         if u in start_indices and v in final_indices
     }
+
+
+def tensor_based_cfpq(
+    rsm: RecursiveAutomaton,
+    graph: MultiDiGraph,
+    start_nodes: set[int],
+    final_nodes: set[int],
+) -> set[tuple[int, int]]:
+    if not start_nodes or not final_nodes:
+        return set()
+
+    rsm_matrix, starts, finals = AdjacencyMatrixFA.from_rsm(rsm)
+    graph_matrix = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
+
+    nonterminals = set(starts)
+
+    m = rsm_matrix.len
+    n = graph_matrix.len
+
+    mat2: dict[str, sparse.csr_matrix] = {}
+
+    for symbol in rsm_matrix.transitions:
+        if symbol in graph_matrix.transitions and symbol not in nonterminals:
+            mat2[symbol] = graph_matrix.transitions[symbol].copy().tocsr()
+        else:
+            mat2[symbol] = sparse.csr_matrix((n, n), dtype=bool)
+
+    diagonal = sparse.eye(n, dtype=bool, format="csr")
+
+    for symbol in nonterminals:
+        mat2[symbol] = sparse.csr_matrix((n, n), dtype=bool)
+        if starts[symbol] & finals[symbol]:
+            mat2[symbol] = (mat2[symbol] + diagonal).astype(bool).tocsr()
+
+    # `state_map[(u, v)] = [A, B, ...]` means that u in starts[A] & v in finals[B] and etc.
+
+    state_map: dict[tuple[int, int], list[str]] = {}
+
+    for symbol in nonterminals:
+        for i in starts[symbol]:
+            for j in finals[symbol]:
+                state_map.setdefault((i, j), []).append(symbol)
+
+    changed = True
+
+    while changed:
+        mat3 = sparse.csr_matrix((m * n, m * n), dtype=bool)
+
+        for symbol, mat1 in rsm_matrix.transitions.items():
+            if mat2[symbol].nnz == 0:
+                continue
+
+            prod = sparse.kron(mat1, mat2[symbol]).astype(bool).tocsr()
+            mat3 = (mat3 + prod).astype(bool).tocsr()
+
+        if mat3.nnz == 0:
+            break
+
+        closure = AdjacencyMatrixFA.from_fields(
+            len=m * n,
+            start_indices=[],
+            final_indices=[],
+            transitions={"M": mat3},
+        )
+
+        closure = closure.transitive_closure()
+        closure = closure.tocoo()
+
+        rows = closure.row
+        cols = closure.col
+
+        qi = rows // n
+        i = rows % n
+
+        qj = cols // n
+        j = cols % n
+
+        new_edges: dict[str, tuple[list[int], list[int]]] = {}
+
+        for k in range(len(rows)):
+            key = (int(qi[k]), int(qj[k]))
+            for symbol in state_map.get(key, []):
+                new_edges.setdefault(symbol, ([], []))
+                new_edges[symbol][0].append(int(i[k]))
+                new_edges[symbol][1].append(int(j[k]))
+
+        changed = False
+
+        for symbol, (r, c) in new_edges.items():
+            if not r:
+                continue
+
+            block = sparse.csr_matrix(
+                (np.ones(len(r), dtype=bool), (r, c)),
+                shape=(n, n),
+                dtype=bool,
+            )
+
+            change = (mat2[symbol] + block).astype(bool).tocsr()
+
+            if change.nnz > mat2[symbol].nnz:
+                mat2[symbol] = change
+                changed = True
+
+    start = str(rsm.initial_label)
+    mat_start = mat2[start].tocsr()
+
+    state_to_index = {s: i for i, s in enumerate(graph_matrix.states)}
+    node_to_index = {}
+
+    for s, i in state_to_index.items():
+        val = str(s)
+        node_to_index[val] = i
+        node_to_index[str(val)] = i
+
+    result = set()
+
+    for u_node in start_nodes:
+        for v_node in final_nodes:
+            i = state_to_index[State(u_node)]
+            j = state_to_index[State(v_node)]
+            if mat_start[i, j]:
+                result.add((u_node, v_node))
+
+    return result
