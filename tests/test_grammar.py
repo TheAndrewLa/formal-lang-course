@@ -2,10 +2,10 @@ from pyformlang.cfg import CFG, Variable
 import pytest
 from networkx import DiGraph, MultiDiGraph
 
-from project.library.grammar import hellings_based_cfpq
+from project.library.grammar import hellings_based_cfpq, matrix_based_cfpq
 
 
-CFPQ_IMPLEMENTATIONS = [hellings_based_cfpq]
+CFPQ_IMPLEMENTATIONS = [hellings_based_cfpq, matrix_based_cfpq]
 
 
 def setup_module():
