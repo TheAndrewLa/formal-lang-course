@@ -207,3 +207,60 @@ def tensor_based_rpq(
         for final in automaton.final_indices
         if closure[start, final]
     }
+
+
+def ms_bfs_based_rpq(
+    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int]
+) -> set[tuple[int, int]]:
+    if not start_nodes or not final_nodes:
+        return set()
+
+    dfa = AdjacencyMatrixFA(regex_to_dfa(regex))
+    nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
+
+    nfa_len = nfa.len
+    dfa_len = dfa.len
+
+    node_to_index = {node: i for i, node in enumerate(nfa.states)}
+    start = [s for s in start_nodes]
+    start_len = len(start)
+
+    rows, cols = [], []
+
+    for i, s in enumerate(start):
+        j = node_to_index[s]
+        for k in dfa.start_indices:
+            rows.append(i)
+            cols.append(k * nfa_len + j)
+
+    frontier = sparse.csr_matrix(
+        ([True] * len(rows), (rows, cols)),
+        shape=(start_len, nfa_len * dfa_len),
+        dtype=bool,
+    )
+
+    visited = frontier.copy()
+
+    common_symbols = dfa.transitions.keys() & nfa.transitions.keys()
+
+    while frontier.nnz > 0:
+        new_frontier = sparse.csr_matrix((start_len, nfa_len * dfa_len), dtype=bool)
+
+        for s in common_symbols:
+            product = sparse.kron(dfa.transitions[s], nfa.transitions[s], format="csr")
+            new_frontier = new_frontier + (frontier @ product).astype(bool)
+
+        frontier = new_frontier - new_frontier.multiply(visited)
+        frontier.eliminate_zeros()
+        visited = (visited + frontier).astype(bool).tocsr()
+
+    result = set()
+
+    for i, start_node in enumerate(start):
+        for j, final_node in map(lambda f: (node_to_index[f], f), final_nodes):
+            for k in dfa.final_indices:
+                if visited[i, k * nfa_len + j]:
+                    result.add((start_node, final_node))
+                    break
+
+    return result

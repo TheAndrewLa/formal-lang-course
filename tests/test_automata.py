@@ -1,15 +1,14 @@
 from typing import Iterable
 
-import cfpq_data
 import pytest
-
 from networkx import MultiDiGraph
+import cfpq_data
 
-from project.library.automata import tensor_based_rpq
+from project.library.automata import tensor_based_rpq, ms_bfs_based_rpq
 from project.library.automata import graph_to_nfa, regex_to_dfa
 
 
-RPQ_IMPLEMENTATIONS = [tensor_based_rpq]
+RPQ_IMPLEMENTATIONS = [tensor_based_rpq, ms_bfs_based_rpq]
 
 
 def setup_module():
