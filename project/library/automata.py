@@ -7,7 +7,7 @@ from pyformlang.finite_automaton import (
     State,
     Symbol,
 )
-from pyformlang.rsa import Box, RecursiveAutomaton
+from pyformlang.rsa import RecursiveAutomaton
 from scipy import sparse
 
 
