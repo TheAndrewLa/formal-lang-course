@@ -1,3 +1,4 @@
+from collections import deque, defaultdict
 import numpy as np
 import pyformlang.cfg as cfg
 from networkx import MultiDiGraph
@@ -6,6 +7,7 @@ from pyformlang.cfg import CFG, Epsilon, Production, Terminal, Variable
 from pyformlang.rsa import RecursiveAutomaton
 from pyformlang.rsa.recursive_automaton import Symbol
 from project.library.automata import AdjacencyMatrixFA, graph_to_nfa
+from project.library import gss
 from scipy import sparse
 
 
@@ -318,5 +320,98 @@ def tensor_based_cfpq(
             j = state_to_index[State(v_node)]
             if mat_start[i, j]:
                 result.add((u_node, v_node))
+
+    return result
+
+
+def gll_based_cfpq(
+    rsm: RecursiveAutomaton,
+    graph: MultiDiGraph,
+    start_nodes: set[int],
+    final_nodes: set[int],
+) -> set[tuple[int, int]]:
+    if not start_nodes or not final_nodes:
+        return set()
+
+    rsm_matrix, starts, finals = AdjacencyMatrixFA.from_rsm(rsm)
+
+    nonterminals = set(starts)
+    initial = str(rsm.initial_label)
+
+    succ: list[dict[str, list[int]]] = list()
+
+    for i in range(rsm_matrix.len):
+        row_succ: dict[str, list[int]] = {}
+        for symbol, matrix in rsm_matrix.transitions.items():
+            row = matrix.getrow(i)
+            if len(row.indices) > 0:
+                row_succ[str(symbol)] = list(row.indices)
+        succ.append(row_succ)
+
+
+    graph_edges: dict[int, list[tuple[str, int]]] = dict()
+
+    for node, vertex, label in graph.edges(data="label"):
+        graph_edges.setdefault(node, [])
+        graph_edges[node].append((str(label), vertex))
+
+    index_to_nonterminal = {
+        i: s.value[0] for i, s in enumerate(rsm_matrix.states)
+    }
+
+    result: set[tuple[int, int]] = set()
+
+    def try_result(u: int, v: int):
+        if u in start_nodes and v in final_nodes:
+            result.add((u, v))
+
+    for start_v in start_nodes:
+        stack = gss.Stack()
+        root = gss.Node(None, start_v)
+
+        queue = deque()
+        popped = defaultdict(set)
+        visited = set()
+
+        def push(state: int | None, vertex: int, node: gss.Node):
+            desc = (state, vertex, node)
+            if desc not in visited:
+                visited.add(desc)
+                queue.append(desc)
+
+        for s in starts[initial]:
+            push(s, start_v, root)
+
+        while queue:
+            state, vertex, node = queue.popleft()
+
+            current_nt = index_to_nonterminal[state]
+
+            if state in finals.get(current_nt, set()):
+                if node.state is None:
+                    try_result(start_v, vertex)
+                else:
+                    if vertex not in popped[node]:
+                        popped[node].add(vertex)
+                        for pred in node.preds:
+                            push(node.state, vertex, pred)
+
+            for symbol, successors in succ[state].items():
+                if symbol in nonterminals:
+                    for next_state in successors:
+                        new_node = stack.get_or_create(symbol, next_state, vertex)
+                        if node not in new_node.preds:
+                            new_node.preds.add(node)
+                            if new_node in popped:
+                                for v_end in popped[new_node]:
+                                    push(new_node.state, v_end, node)
+                        for s in starts[symbol]:
+                            push(s, vertex, new_node)
+                else:
+                    edges = graph_edges.get(vertex, [])
+                    for label, target in edges:
+                        if label == symbol:
+                            for next_state in successors:
+                                push(next_state, target, node)
 
     return result
