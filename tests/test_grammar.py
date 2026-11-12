@@ -4,6 +4,7 @@ from networkx import DiGraph, MultiDiGraph
 
 from project.library.grammar import (
     cfg_to_rsm,
+    gll_based_cfpq,
     hellings_based_cfpq,
     matrix_based_cfpq,
     tensor_based_cfpq,
@@ -25,10 +26,18 @@ def wrap_tensor_based_cfpq(
     return tensor_based_cfpq(rsm, graph, starts, finals)
 
 
+def wrap_gll_based_cfpq(
+    cfg: CFG, graph: MultiDiGraph, starts: set[int], finals: set[int]
+):
+    rsm = cfg_to_rsm(cfg)
+    return gll_based_cfpq(rsm, graph, starts, finals)
+
+
 CFPQ_IMPLEMENTATIONS = [
     hellings_based_cfpq,
     matrix_based_cfpq,
     wrap_tensor_based_cfpq,
+    wrap_gll_based_cfpq,
 ]
 
 
