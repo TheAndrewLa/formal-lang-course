@@ -7,6 +7,7 @@ from pyformlang.finite_automaton import (
     State,
     Symbol,
 )
+from pyformlang.rsa import RecursiveAutomaton
 from scipy import sparse
 
 
@@ -75,7 +76,7 @@ class AdjacencyMatrixFA:
         transitions = automaton.to_dict()
 
         for s in automaton.symbols:
-            self.transitions[s] = sparse.csr_matrix((self.len, self.len), dtype=bool)
+            self.transitions[s] = sparse.lil_matrix((self.len, self.len), dtype=bool)
 
         for state, transitionsFromState in transitions.items():
             index = state_to_index[state]
@@ -149,6 +150,49 @@ class AdjacencyMatrixFA:
         obj.final_indices = set(final_indices)
         obj.transitions = transitions
         return obj
+
+    @classmethod
+    def from_rsm(
+        cls, rsm: RecursiveAutomaton
+    ) -> tuple["AdjacencyMatrixFA", dict[str, set[int]], dict[str, set[int]]]:
+        nfa = NondeterministicFiniteAutomaton()
+        dfas = {
+            str(box.label): box.dfa.to_deterministic() for box in rsm.boxes.values()
+        }
+
+        def make_state(nonterminal: str, local) -> State:
+            return State((nonterminal, local))
+
+        for nonterminal, dfa in dfas.items():
+            for source, edges in dfa.to_dict().items():
+                for symbol, dest in edges.items():
+                    nfa.add_transition(
+                        make_state(nonterminal, source),
+                        symbol,
+                        make_state(nonterminal, dest),
+                    )
+
+        for nonterminal, dfa in dfas.items():
+            nfa.add_start_state(make_state(nonterminal, dfa.start_state))
+
+            for state in dfa.final_states:
+                nfa.add_final_state(make_state(nonterminal, state))
+
+        object = cls(nfa)
+
+        state_to_index = {s: i for i, s in enumerate(object.states)}
+
+        box_start_indices = {
+            nt: {state_to_index[make_state(nt, s)] for s in dfa.start_states}
+            for nt, dfa in dfas.items()
+        }
+
+        box_final_indices = {
+            nt: {state_to_index[make_state(nt, f)] for f in dfa.final_states}
+            for nt, dfa in dfas.items()
+        }
+
+        return object, box_start_indices, box_final_indices
 
 
 def intersect_automata(
