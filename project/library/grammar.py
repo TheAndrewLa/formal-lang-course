@@ -348,16 +348,13 @@ def gll_based_cfpq(
                 row_succ[str(symbol)] = list(row.indices)
         succ.append(row_succ)
 
-
     graph_edges: dict[int, list[tuple[str, int]]] = dict()
 
     for node, vertex, label in graph.edges(data="label"):
         graph_edges.setdefault(node, [])
         graph_edges[node].append((str(label), vertex))
 
-    index_to_nonterminal = {
-        i: s.value[0] for i, s in enumerate(rsm_matrix.states)
-    }
+    index_to_nonterminal = {i: s.value[0] for i, s in enumerate(rsm_matrix.states)}
 
     result: set[tuple[int, int]] = set()
 
